@@ -1,6 +1,6 @@
 # エイム練習 & 画像認識マウス追跡
 
-## デモ動画
+## トラッキングのデモ動画(音声あり)
 
 https://github.com/user-attachments/assets/68cf9bdf-40a3-40e1-a548-09dfbd721b6e
 
