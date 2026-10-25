@@ -2,10 +2,7 @@
 
 ## デモ動画
 
-<video width="100%" controls>
-  <source src="https://raw.githubusercontent.com/namituki/tracking/main/video.mp4" type="video/mp4">
-  動画を再生できません。
-</video>
+https://github.com/user-attachments/assets/68cf9bdf-40a3-40e1-a548-09dfbd721b6e
 
 ## エイム練習 (Web)
 エイム練習を試す：
