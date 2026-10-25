@@ -3,8 +3,8 @@
 ## デモ動画
 
 <video width="100%" controls>
-  <source src="video.mp4" type="video/mp4">
-  動画が再生できません
+  <source src="https://raw.githubusercontent.com/namituki/tracking/main/video.mp4" type="video/mp4">
+  動画を再生できません。
 </video>
 
 ## エイム練習 (Web)
