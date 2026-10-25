@@ -3,7 +3,7 @@
 ## デモ動画
 
 <video width="100%" controls>
-  <source src="demo.mp4" type="video/mp4">
+  <source src="video.mp4" type="video/mp4">
   動画が再生できません
 </video>
 
