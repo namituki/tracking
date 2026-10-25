@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#09090b">
+<title>エイム練習</title>
+<style>
+@property --a { syntax:'<angle>'; initial-value:0deg; inherits:false; }
+:root{
+  --bg:#09090b; --card:#0c0c0f; --muted:#18181b; --border:#27272a; --fg:#fafafa; --mfg:#a1a1aa;
+  --ring:#52525b; --ok:#4ade80; --ng:#f87171; --r:10px;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 12px 32px -12px rgba(0,0,0,.7);
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+  font-family:"Geist",system-ui,-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;-webkit-font-smoothing:antialiased}
+body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+button,input{font:inherit;color:inherit}
+.hidden{display:none!important}
+
+header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:10px 14px;padding-top:max(10px,env(safe-area-inset-top));
+  background:rgba(9,9,11,.8);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);z-index:20}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;letter-spacing:-.02em;margin-right:auto}
+.brand i{width:10px;height:10px;border-radius:50%;background:var(--ng);box-shadow:0 0 0 4px rgba(248,113,113,.18);animation:pulse 2s ease-in-out infinite}
+.grad{background:linear-gradient(90deg,#fafafa,#a1a1aa,#fafafa);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:gshift 6s linear infinite}
+.stats{order:3;flex-basis:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;min-width:0;transition:border-color .2s}
+.stat span{display:block;font-size:11px;color:var(--mfg)}
+.stat b{font-size:19px;font-variant-numeric:tabular-nums;letter-spacing:-.02em;display:inline-block}
+#hits b{color:var(--ok)} #misses b{color:var(--ng)}
+.bump{animation:bump .25s var(--ease)}
+.actions{display:flex;gap:8px;position:relative}
+@media(min-width:720px){.stats{order:0;flex-basis:auto;display:flex;margin:0 auto}.stat{min-width:92px}.brand{margin-right:0}header{padding:10px 20px}}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--border);
+  background:var(--muted);cursor:pointer;font-size:14px;font-weight:500;transition:background .15s,transform .1s,border-color .15s;outline:none}
+.btn:hover{background:#222226;border-color:#3f3f46}
+.btn:active{transform:translateY(1px) scale(.98)}
+.btn:focus-visible,.seg button:focus-visible,.sw:focus-visible,.item:focus-visible{box-shadow:0 0 0 3px rgba(161,161,170,.35);border-color:var(--ring)}
+.btn.icon{width:36px;padding:0}
+.btn.primary{background:var(--fg);color:#18181b;border-color:var(--fg)}
+.btn.primary:hover{background:#e4e4e7}
+.btn.lg{height:44px;width:100%;font-size:15px;border-radius:10px}
+.shimmer{position:relative;overflow:hidden}
+.shimmer::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 35%,rgba(0,0,0,.14) 50%,transparent 65%);transform:translateX(-100%);animation:shim 2.6s ease-in-out infinite}
+
+.menu{position:absolute;right:0;top:44px;min-width:210px;padding:4px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);
+  transform-origin:top right;animation:menuin .16s var(--ease);z-index:30}
+.item{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:0;background:none;border-radius:6px;cursor:pointer;font-size:14px;text-align:left;outline:none}
+.item:hover,.item:focus-visible{background:var(--muted)}
+.item small{margin-left:auto;color:var(--mfg)}
+.sep{height:1px;background:var(--border);margin:4px -4px}
+
+#field{position:relative;flex:1;overflow:hidden;cursor:crosshair;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+#dots{position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(#2a2a30 1px,transparent 1.2px);background-size:22px 22px;
+  -webkit-mask-image:radial-gradient(ellipse at center,#000 30%,transparent 90%);mask-image:radial-gradient(ellipse at center,#000 30%,transparent 90%)}
+#spot{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .3s;
+  background:radial-gradient(260px circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.07),transparent 70%)}
+#spot.on{opacity:1}
+#flash{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 90px rgba(248,113,113,.3);opacity:0}
+#flash.on{animation:flash .3s ease-out}
+#target{position:absolute;display:none;-webkit-user-drag:none;user-select:none;touch-action:manipulation}
+#target.pop{animation:pop .16s var(--ease)}
+#target.fallback{border-radius:50%;background:radial-gradient(circle,#fafafa 0 12%,#ef4444 13% 38%,#fafafa 39% 56%,#ef4444 57% 100%);box-shadow:0 0 30px rgba(239,68,68,.35)}
+.ripple{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;border:2px solid;pointer-events:none;animation:ripple .55s ease-out forwards}
+.ripple.ok{border-color:var(--ok)} .ripple.ng{border-color:var(--ng)}
+
+.overlay{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:16px;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(6px);animation:fade .2s ease-out}
+.card{position:relative;width:min(440px,100%);max-height:100%;overflow:auto;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;
+  box-shadow:var(--shadow);animation:cardin .3s var(--ease)}
+.beam::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
+  background:conic-gradient(from var(--a),transparent 0 72%,#818cf8 86%,#f0abfc 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:spin 5s linear infinite}
+@media(max-width:600px){.overlay{align-items:flex-end;padding:0}.card{border-radius:16px 16px 0 0;padding-bottom:max(22px,env(safe-area-inset-bottom));animation:sheet .35s var(--ease)}}
+h2{margin:0 0 4px;font-size:18px;letter-spacing:-.02em}
+.desc{margin:0 0 16px;color:var(--mfg);font-size:13px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0}
+.row>label{font-size:14px}
+.row .val{color:var(--mfg);font-size:13px;min-width:44px;text-align:right;font-variant-numeric:tabular-nums}
+
+.seg{position:relative;display:grid;grid-template-columns:1fr 1fr;padding:3px;background:var(--muted);border-radius:9px;width:190px}
+.seg .ind{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);background:#2c2c31;border-radius:7px;box-shadow:0 1px 2px rgba(0,0,0,.4);transition:transform .25s var(--ease)}
+.seg[data-i="1"] .ind{transform:translateX(100%)}
+.seg button{position:relative;z-index:1;background:none;border:0;padding:6px 0;font-size:13px;color:var(--mfg);cursor:pointer;border-radius:7px;outline:none;transition:color .2s}
+.seg button.on{color:var(--fg)}
+input[type=number]{width:96px;height:36px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:transparent;outline:none;text-align:right}
+input[type=number]:focus{border-color:var(--ring);box-shadow:0 0 0 3px rgba(161,161,170,.25)}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;max-width:190px;height:6px;border-radius:99px;background:var(--muted);outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--fg);border:2px solid #18181b;box-shadow:0 1px 4px rgba(0,0,0,.5);transition:transform .15s}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--fg);border:2px solid #18181b}
+input[type=range]:active::-webkit-slider-thumb{transform:scale(1.15)}
+.sw{position:relative;width:38px;height:22px;border-radius:99px;border:0;background:#3f3f46;cursor:pointer;outline:none;transition:background .2s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s var(--ease)}
+.sw[aria-checked=true]{background:var(--ok)} .sw[aria-checked=true]::after{transform:translateX(16px)}
+details{margin-top:14px;border-top:1px solid var(--border);padding-top:12px;font-size:13px}
+summary{cursor:pointer;color:var(--mfg)}
+.note{color:var(--mfg);font-size:12px;line-height:1.6;margin:8px 0}
+input[type=file]{max-width:200px;font-size:12px;color:var(--mfg)}
+#rRate{font-size:48px;font-weight:800;letter-spacing:-.04em;text-align:center;margin:6px 0}
+.grid2{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}
+.grid2 div{background:var(--muted);border-radius:var(--r);padding:8px;text-align:center}
+.grid2 span{display:block;font-size:11px;color:var(--mfg)} .grid2 b{font-size:18px}
+
+#toast{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom));transform:translate(-50%,20px);opacity:0;pointer-events:none;
+  background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:13px;box-shadow:var(--shadow);transition:.3s var(--ease);z-index:50}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+
+@keyframes spin{to{--a:360deg}}
+@keyframes shim{60%,100%{transform:translateX(100%)}}
+@keyframes gshift{to{background-position:200% 0}}
+@keyframes pulse{50%{box-shadow:0 0 0 7px rgba(248,113,113,0)}}
+@keyframes bump{40%{transform:scale(1.25)}}
+@keyframes pop{from{transform:scale(.5);opacity:0}}
+@keyframes ripple{to{transform:scale(7);opacity:0}}
+@keyframes flash{from{opacity:1}to{opacity:0}}
+@keyframes fade{from{opacity:0}}
+@keyframes cardin{from{opacity:0;transform:translateY(12px) scale(.97)}}
+@keyframes sheet{from{transform:translateY(100%)}}
+@keyframes menuin{from{opacity:0;transform:scale(.94)}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><i></i><span class="grad">AIM TRAINER</span></div>
+  <div class="stats">
+    <div class="stat" id="hits"><span>正解</span><b>0</b></div>
+    <div class="stat" id="misses"><span>ミス</span><b>0</b></div>
+    <div class="stat" id="rate"><span>命中率</span><b>--%</b></div>
+    <div class="stat" id="time"><span id="timeLabel">経過</span><b>0.0</b></div>
+  </div>
+  <div class="actions">
+    <button class="btn" id="stopBtn">終了</button>
+    <button class="btn icon" id="moreBtn" aria-haspopup="menu" aria-expanded="false" aria-label="メニュー">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+    </button>
+    <div class="menu hidden" id="menu" role="menu">
+      <button class="item" role="menuitem" data-a="settings">設定を開く</button>
+      <button class="item" role="menuitem" data-a="mute">効果音<small id="muteState">オン</small></button>
+      <button class="item" role="menuitem" data-a="spot">スポットライト<small id="spotState">オン</small></button>
+      <div class="sep"></div>
+      <button class="item" role="menuitem" data-a="full">全画面表示</button>
+    </div>
+  </div>
+</header>
+
+<div id="field">
+  <div id="dots"></div><div id="spot" class="on"></div><div id="flash"></div>
+  <img id="target" alt="" draggable="false">
+
+  <div class="overlay" id="settings">
+    <div class="card beam" role="dialog" aria-modal="true" aria-labelledby="sTitle">
+      <h2 id="sTitle" class="grad">エイム練習</h2>
+      <p class="desc">ターゲットをクリックして反応速度と精度を鍛えます。</p>
+      <div class="row"><label>モード</label>
+        <div class="seg" id="modeSeg" data-i="0"><div class="ind"></div><button data-m="timed" class="on">制限時間</button><button data-m="free">フリー</button></div>
+      </div>
+      <div class="row" id="durRow"><label for="duration">制限時間（秒）</label><input type="number" id="duration" value="30" min="5" max="600" inputmode="numeric"></div>
+      <div class="row"><label>ターゲットの大きさ</label><input type="range" id="size" min="30" max="250" value="90"><span class="val" id="sizeVal">90px</span></div>
+      <div class="row"><label>音量</label><input type="range" id="vol" min="0" max="100" value="70"><span class="val" id="volVal">70%</span></div>
+      <div class="row"><label>効果音</label><button class="sw" id="swSound" role="switch" aria-checked="true" aria-label="効果音"></button></div>
+      <div class="row"><label>スポットライト</label><button class="sw" id="swSpot" role="switch" aria-checked="true" aria-label="スポットライト"></button></div>
+      <button class="btn primary lg shimmer" id="startBtn">スタート</button>
+      <details>
+        <summary>画像・音声の読み込みについて</summary>
+        <p class="note">画像と音声を下から変えられます</p>
+        <div class="row"><label>画像</label><input type="file" id="imgPick" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.avif" multiple></div>
+        <div class="row"><label>音声</label><input type="file" id="sndPick" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac" multiple></div>
+        <p class="note" id="loadInfo"></p>
+      </details>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="result">
+    <div class="card beam" role="dialog" aria-modal="true">
+      <h2>結果</h2><p class="desc" id="rBest">お疲れさまでした。</p>
+      <div class="note" style="text-align:center;margin:0">SCORE（60秒換算）</div>
+      <div id="rRate" class="grad">0</div>
+      <div class="grid2"><div><span>正解</span><b id="rH">0</b></div><div><span>ミス</span><b id="rM">0</b></div><div><span>命中率</span><b id="rAcc">0%</b></div><div><span>ヒット/秒</span><b id="rS">0</b></div></div>
+      <p class="note" id="rCalc" style="text-align:center"></p>
+      <div class="row"><button class="btn primary lg shimmer" id="againBtn">もう一度</button></div>
+      <div class="row" style="margin-top:0"><button class="btn lg" id="menuBtn">設定に戻る</button></div>
+    </div>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+const IMAGES = ["spk.png"];
+const SOUNDS = ["spk1.wav","spk2.wav","spk3.wav"];
+
+const $ = id => document.getElementById(id);
+const field=$("field"), target=$("target"), flash=$("flash"), spot=$("spot");
+let imageSrcs=[...IMAGES], soundSrcs=[...SOUNDS];
+let mode="timed", running=false, hits=0, misses=0, startTime=0, duration=30, timerId=null, lastPos=null;
+let soundOn=true, spotOn=true;
+
+let toastT;
+function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove("on"),1800);}
+function bump(el){el.classList.remove("bump");void el.offsetWidth;el.classList.add("bump");}
+function setSound(v){soundOn=v;$("swSound").setAttribute("aria-checked",v);$("muteState").textContent=v?"オン":"オフ";}
+function setSpot(v){spotOn=v;$("swSpot").setAttribute("aria-checked",v);$("spotState").textContent=v?"オン":"オフ";spot.classList.toggle("on",v);}
+$("swSound").onclick=()=>setSound(!soundOn);
+$("swSpot").onclick=()=>setSpot(!spotOn);
+
+const menu=$("menu"), moreBtn=$("moreBtn");
+function toggleMenu(open){menu.classList.toggle("hidden",!open);moreBtn.setAttribute("aria-expanded",open);if(open)menu.querySelector(".item").focus();}
+moreBtn.onclick=e=>{e.stopPropagation();toggleMenu(menu.classList.contains("hidden"));};
+document.addEventListener("pointerdown",e=>{if(!menu.contains(e.target)&&e.target!==moreBtn&&!moreBtn.contains(e.target))toggleMenu(false);});
+menu.addEventListener("keydown",e=>{
+  const it=[...menu.querySelectorAll(".item")],i=it.indexOf(document.activeElement);
+  if(e.key==="ArrowDown"){e.preventDefault();it[(i+1)%it.length].focus();}
+  if(e.key==="ArrowUp"){e.preventDefault();it[(i-1+it.length)%it.length].focus();}
+});
+menu.addEventListener("click",e=>{
+  const b=e.target.closest(".item");if(!b)return;
+  const a=b.dataset.a;
+  if(a==="mute"){setSound(!soundOn);toast("効果音を"+(soundOn?"オンにしました":"オフにしました"));}
+  else if(a==="spot"){setSpot(!spotOn);toast("スポットライトを"+(spotOn?"オン":"オフ")+"にしました");}
+  else if(a==="full"){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen?.();}
+  else if(a==="settings"){if(running)toast("プレイ中は設定を開けません");else{$("result").classList.add("hidden");$("settings").classList.remove("hidden");}}
+  toggleMenu(false);
+});
+
+$("modeSeg").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  mode=b.dataset.m;
+  [...$("modeSeg").querySelectorAll("button")].forEach(x=>x.classList.toggle("on",x===b));
+  $("modeSeg").dataset.i=mode==="free"?1:0;
+  $("durRow").classList.toggle("hidden",mode==="free");
+});
+$("size").oninput=()=>$("sizeVal").textContent=$("size").value+"px";
+$("vol").oninput=()=>$("volVal").textContent=$("vol").value+"%";
+
+field.addEventListener("pointermove",e=>{const r=field.getBoundingClientRect();spot.style.setProperty("--mx",e.clientX-r.left+"px");spot.style.setProperty("--my",e.clientY-r.top+"px");});
+
+function ripple(x,y,cls){const r=document.createElement("span");r.className="ripple "+cls;r.style.left=x+"px";r.style.top=y+"px";field.appendChild(r);r.addEventListener("animationend",()=>r.remove());}
+
+function updateInfo(){$("loadInfo").textContent=`画像 ${imageSrcs.length} 件 / 音声 ${soundSrcs.length} 件`+(imageSrcs.length?"":"（画像なし：標準の的を使用）");}
+$("imgPick").onchange=e=>{const f=[...e.target.files];imageSrcs=f.length?f.map(x=>URL.createObjectURL(x)):[...IMAGES];updateInfo();};
+$("sndPick").onchange=e=>{const f=[...e.target.files];soundSrcs=f.length?f.map(x=>URL.createObjectURL(x)):[...SOUNDS];updateInfo();};
+updateInfo();
+
+function playHitSound(){
+  if(!soundOn||!soundSrcs.length)return;
+  const a=new Audio(soundSrcs[Math.floor(Math.random()*soundSrcs.length)]);
+  a.volume=$("vol").value/100;a.play().catch(()=>{});
+}
+
+function placeTarget(){
+  if(imageSrcs.length){target.classList.remove("fallback");target.src=imageSrcs[Math.floor(Math.random()*imageSrcs.length)];}
+  else{target.classList.add("fallback");target.removeAttribute("src");}
+  const size=+$("size").value;
+  target.style.width=size+"px";target.style.height=imageSrcs.length?"auto":size+"px";target.style.display="block";
+  const place=()=>{
+    const w=target.offsetWidth||size,h=target.offsetHeight||size;
+    const mx=Math.max(0,field.clientWidth-w),my=Math.max(0,field.clientHeight-h);
+    let x,y,t=0;
+    do{x=Math.random()*mx;y=Math.random()*my;t++;}while(lastPos&&t<10&&Math.hypot(x-lastPos.x,y-lastPos.y)<Math.min(mx,my)*.25);
+    lastPos={x,y};target.style.left=x+"px";target.style.top=y+"px";
+  };
+  place();
+  if(imageSrcs.length&&!target.complete)target.onload=place;
+  target.classList.remove("pop");void target.offsetWidth;target.classList.add("pop");
+}
+
+function updateHud(){
+  const t=hits+misses;
+  $("hits").querySelector("b").textContent=hits;
+  $("misses").querySelector("b").textContent=misses;
+  $("rate").querySelector("b").textContent=t?(hits/t*100).toFixed(1)+"%":"--%";
+}
+function tick(){
+  const el=(performance.now()-startTime)/1000;
+  if(mode==="timed"){const left=Math.max(0,duration-el);$("time").querySelector("b").textContent=left.toFixed(1);if(left<=0)endGame();}
+  else $("time").querySelector("b").textContent=el.toFixed(1);
+}
+
+function startGame(){
+  hits=0;misses=0;lastPos=null;
+  duration=Math.max(5,+$("duration").value||30);
+  $("timeLabel").textContent=mode==="timed"?"残り":"経過";
+  updateHud();
+  $("settings").classList.add("hidden");$("result").classList.add("hidden");
+  running=true;startTime=performance.now();placeTarget();
+  clearInterval(timerId);timerId=setInterval(tick,50);tick();
+}
+function endGame(){
+  if(!running)return;
+  running=false;clearInterval(timerId);target.style.display="none";
+  const el=Math.min((performance.now()-startTime)/1000,mode==="timed"?duration:Infinity),t=hits+misses;
+  const acc=t?hits/t:0;
+  $("rH").textContent=hits;$("rM").textContent=misses;$("rAcc").textContent=(acc*100).toFixed(1)+"%";
+  $("rS").textContent=el>0?(hits/el).toFixed(2):"0";
+  let msg="お疲れさまでした。";
+  if(el<5){
+    $("rRate").textContent="--";
+    $("rCalc").textContent="プレイ時間が5秒未満のため、スコア対象外です。";
+  }else{
+    const accMul=0.5+acc;
+    const sizeMul=Math.min(1.8,Math.max(0.6,Math.sqrt(90/+$("size").value)));
+    const norm=60/el;
+    const score=Math.round(hits*100*accMul*sizeMul*norm);
+    $("rRate").textContent=score.toLocaleString();
+    $("rCalc").textContent=`${hits}ヒット × 100点 × 命中率倍率 ${accMul.toFixed(2)} × サイズ補正 ${sizeMul.toFixed(2)} × 60秒換算 ${norm.toFixed(2)}（${el.toFixed(1)}秒）`;
+    try{
+      const k="aim.bestScore",best=+localStorage.getItem(k)||0;
+      if(score>best){localStorage.setItem(k,score);msg=best?`自己ベスト更新（${best.toLocaleString()} → ${score.toLocaleString()}）`:"スコアを保存しました";}
+      else msg=`自己ベスト：${best.toLocaleString()}`;
+    }catch(e){}
+  }
+  $("rBest").textContent=msg;
+  $("result").classList.remove("hidden");
+}
+
+target.addEventListener("pointerdown",e=>{
+  if(!running)return;e.stopPropagation();e.preventDefault();
+  const r=field.getBoundingClientRect();ripple(e.clientX-r.left,e.clientY-r.top,"ok");
+  hits++;bump($("hits").querySelector("b"));playHitSound();updateHud();placeTarget();
+});
+field.addEventListener("pointerdown",e=>{
+  if(!running||e.target.closest(".overlay"))return;
+  const r=field.getBoundingClientRect();ripple(e.clientX-r.left,e.clientY-r.top,"ng");
+  misses++;bump($("misses").querySelector("b"));updateHud();
+  flash.classList.remove("on");void flash.offsetWidth;flash.classList.add("on");
+});
+field.addEventListener("contextmenu",e=>{if(running)e.preventDefault();});
+$("startBtn").onclick=startGame;$("againBtn").onclick=startGame;
+$("stopBtn").onclick=()=>{if(running)endGame();else toast("プレイ中ではありません");};
+$("menuBtn").onclick=()=>{$("result").classList.add("hidden");$("settings").classList.remove("hidden");};
+window.addEventListener("keydown",e=>{
+  if(e.key!=="Escape")return;
+  if(!menu.classList.contains("hidden"))toggleMenu(false);else if(running)endGame();
+});
+</script>
+</body>
+</html>
