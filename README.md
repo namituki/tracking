@@ -35,7 +35,7 @@ pip install -r requirements.txt
 
 ### 使い方
 
-#### 方法1: main.pyで一括実行 (おすすめ)
+#### 方法1: main.pyで一括実行 (オヌヌメ)
 ```bash
 source .venv/bin/activate
 python main.py --click --click-cooldown 0.5 --threshold 0.9
