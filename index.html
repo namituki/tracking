@@ -61,6 +61,9 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:10px
 #spot.on{opacity:1}
 #flash{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 90px rgba(248,113,113,.3);opacity:0}
 #flash.on{animation:flash .3s ease-out}
+#countdown{position:absolute;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;pointer-events:none;
+  font-size:min(38vw,220px);font-weight:800;letter-spacing:-.04em;font-variant-numeric:tabular-nums;color:var(--fg);text-shadow:0 0 60px rgba(129,140,248,.45)}
+#countdown.tick{animation:cdpop 1s var(--ease)}
 #target{position:absolute;display:none;-webkit-user-drag:none;user-select:none;touch-action:manipulation}
 #target.pop{animation:pop .16s var(--ease)}
 #target.fallback{border-radius:50%;background:radial-gradient(circle,#fafafa 0 12%,#ef4444 13% 38%,#fafafa 39% 56%,#ef4444 57% 100%);box-shadow:0 0 30px rgba(239,68,68,.35)}
@@ -120,6 +123,7 @@ input[type=file]{max-width:200px;font-size:12px;color:var(--mfg)}
 @keyframes cardin{from{opacity:0;transform:translateY(12px) scale(.97)}}
 @keyframes sheet{from{transform:translateY(100%)}}
 @keyframes menuin{from{opacity:0;transform:scale(.94)}}
+@keyframes cdpop{0%{opacity:0;transform:scale(1.6)}25%{opacity:1;transform:scale(1)}80%{opacity:1;transform:scale(.96)}100%{opacity:0;transform:scale(.85)}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
@@ -150,6 +154,7 @@ input[type=file]{max-width:200px;font-size:12px;color:var(--mfg)}
 
 <div id="field">
   <div id="dots"></div><div id="spot" class="on"></div><div id="flash"></div>
+  <div id="countdown" class="hidden" aria-live="assertive"></div>
   <img id="target" alt="" draggable="false">
 
   <div class="overlay" id="settings">
@@ -194,9 +199,9 @@ const IMAGES = ["spk.png"];
 const SOUNDS = ["spk1.wav","spk2.wav","spk3.wav"];
 
 const $ = id => document.getElementById(id);
-const field=$("field"), target=$("target"), flash=$("flash"), spot=$("spot");
+const field=$("field"), target=$("target"), flash=$("flash"), spot=$("spot"), countdownEl=$("countdown");
 let imageSrcs=[...IMAGES], soundSrcs=[...SOUNDS];
-let mode="timed", running=false, hits=0, misses=0, startTime=0, duration=30, timerId=null, lastPos=null;
+let mode="timed", running=false, counting=false, cdTimer=null, hits=0, misses=0, startTime=0, duration=30, timerId=null, lastPos=null;
 let soundOn=true, spotOn=true;
 
 let toastT;
@@ -222,7 +227,7 @@ menu.addEventListener("click",e=>{
   if(a==="mute"){setSound(!soundOn);toast("効果音を"+(soundOn?"オンにしました":"オフにしました"));}
   else if(a==="spot"){setSpot(!spotOn);toast("スポットライトを"+(spotOn?"オン":"オフ")+"にしました");}
   else if(a==="full"){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen?.();}
-  else if(a==="settings"){if(running)toast("プレイ中は設定を開けません");else{$("result").classList.add("hidden");$("settings").classList.remove("hidden");}}
+  else if(a==="settings"){if(running||counting)toast("プレイ中は設定を開けません");else{$("result").classList.add("hidden");$("settings").classList.remove("hidden");}}
   toggleMenu(false);
 });
 
@@ -280,14 +285,37 @@ function tick(){
   else $("time").querySelector("b").textContent=el.toFixed(1);
 }
 
+function showCount(n){
+  countdownEl.textContent=n;
+  countdownEl.classList.remove("hidden","tick");
+  void countdownEl.offsetWidth;
+  countdownEl.classList.add("tick");
+}
+function cancelCountdown(){
+  clearTimeout(cdTimer);counting=false;
+  countdownEl.classList.add("hidden");countdownEl.classList.remove("tick");
+}
+function runCountdown(n){
+  if(n===0){
+    cancelCountdown();
+    running=true;startTime=performance.now();placeTarget();
+    clearInterval(timerId);timerId=setInterval(tick,50);tick();
+    return;
+  }
+  showCount(n);
+  cdTimer=setTimeout(()=>runCountdown(n-1),1000);
+}
+
 function startGame(){
+  if(running||counting)return;
   hits=0;misses=0;lastPos=null;
   duration=Math.max(5,+$("duration").value||30);
   $("timeLabel").textContent=mode==="timed"?"残り":"経過";
+  $("time").querySelector("b").textContent=mode==="timed"?duration.toFixed(1):"0.0";
   updateHud();
   $("settings").classList.add("hidden");$("result").classList.add("hidden");
-  running=true;startTime=performance.now();placeTarget();
-  clearInterval(timerId);timerId=setInterval(tick,50);tick();
+  counting=true;
+  runCountdown(3);
 }
 function endGame(){
   if(!running)return;
@@ -328,13 +356,19 @@ field.addEventListener("pointerdown",e=>{
   misses++;bump($("misses").querySelector("b"));updateHud();
   flash.classList.remove("on");void flash.offsetWidth;flash.classList.add("on");
 });
-field.addEventListener("contextmenu",e=>{if(running)e.preventDefault();});
+field.addEventListener("contextmenu",e=>{if(running||counting)e.preventDefault();});
 $("startBtn").onclick=startGame;$("againBtn").onclick=startGame;
-$("stopBtn").onclick=()=>{if(running)endGame();else toast("プレイ中ではありません");};
+$("stopBtn").onclick=()=>{
+  if(running)endGame();
+  else if(counting){cancelCountdown();$("settings").classList.remove("hidden");}
+  else toast("プレイ中ではありません");
+};
 $("menuBtn").onclick=()=>{$("result").classList.add("hidden");$("settings").classList.remove("hidden");};
 window.addEventListener("keydown",e=>{
   if(e.key!=="Escape")return;
-  if(!menu.classList.contains("hidden"))toggleMenu(false);else if(running)endGame();
+  if(!menu.classList.contains("hidden"))toggleMenu(false);
+  else if(counting){cancelCountdown();$("settings").classList.remove("hidden");}
+  else if(running)endGame();
 });
 </script>
 </body>
